@@ -1,3 +1,3 @@
 zig-cache
 NvVars
-boot/efi/*
+efi/boot/*
