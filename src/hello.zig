@@ -2,29 +2,28 @@ const std = @import("std");
 const uefi = std.os.uefi;
 
 pub fn main() void {
-    const boot_services = uefi.system_table.boot_services.?;
     const runtime_services = uefi.system_table.runtime_services;
     const vendor = uefi.system_table.firmware_vendor;
 
     setup_screen();
     
     print(5,5, "Hello World!");
-    print16(5,6, vendor); 
-    
-    
+    print16(5,6, vendor);    
 
-    const stdin = uefi.system_table.con_in.?;
-    const Key = uefi.protocols.InputKey;
-    while (true) {        
-        var key: Key = undefined;
-        _ = stdin.readKeyStroke(&key);
-        
-        if(key.unicode_char == 'r'){
-            runtime_services.resetSystem(.ResetShutdown, .Success, 0, null);
-        } else if (key.unicode_char == 'R'){
-            runtime_services.resetSystem(.ResetWarm, .Success, 0, null);
+    while (true) {                
+        switch(getKey().unicode_char){
+            'r' => runtime_services.resetSystem(.ResetShutdown, .Success, 0, null),
+            'R' => runtime_services.resetSystem(.ResetWarm, .Success, 0, null),
+            else => {}
         }
     }
+}
+
+pub fn getKey() uefi.protocols.InputKey {
+    const stdin = uefi.system_table.con_in.?;
+    var key: uefi.protocols.InputKey = undefined;
+    _ = stdin.readKeyStroke(&key);
+    return key;
 }
 
 pub fn setup_screen() void {

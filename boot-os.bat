@@ -1,1 +1,1 @@
-qemu-system-x86_64 -bios "OVMF.fd" -drive file=fat:rw:.
+qemu-system-x86_64 -bios "OVMF.fd" -drive file=fat:rw:D:/,format=raw 2>nul
