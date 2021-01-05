@@ -14,6 +14,7 @@ pub fn build(b: *Builder) void {
     });
 
     exe.setBuildMode(b.standardReleaseOptions());
+    exe.overrideZigLibDir("zig-custom-stdlib/lib/std");
     exe.setOutputDir("D:/efi/boot");
     b.default_step.dependOn(&exe.step);
         
