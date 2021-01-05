@@ -1,4 +1,5 @@
 const std = @import("std");
+const builtin = @import("builtin");
 
 const Builder = std.build.Builder;
 const Target = std.Target;
@@ -14,11 +15,14 @@ pub fn build(b: *Builder) void {
     });
 
     exe.setBuildMode(b.standardReleaseOptions());
-    exe.overrideZigLibDir("zig-custom-stdlib/lib/std");
-    exe.setOutputDir("D:/efi/boot");
+    exe.setOutputDir("efi/boot");
     b.default_step.dependOn(&exe.step);
         
-    const cmd = b.addSystemCommand(&[_][]const u8{"boot-os.bat"});
+    const cmd = if(builtin.os.tag == .windows)
+        b.addSystemCommand(&[_][]const u8{"boot-os.bat"})
+    else
+        b.addSystemCommand(&[_][]const u8{"boot-os.sh"})
+    ;
     cmd.step.dependOn(b.getInstallStep());
 
     const run_step = b.step("run", "Run the os");
