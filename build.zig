@@ -17,14 +17,13 @@ pub fn build(b: *Builder) void {
     exe.setBuildMode(b.standardReleaseOptions());
     exe.setOutputDir("efi/boot");
     b.default_step.dependOn(&exe.step);
-        
-    const cmd = if(builtin.os.tag == .windows)
-        b.addSystemCommand(&[_][]const u8{"boot-os.bat"})
+    
+    const run_cmd = b.addSystemCommand(if(builtin.os.tag == .windows)
+        &[_][]const u8{"boot-os.bat"}
     else
-        b.addSystemCommand(&[_][]const u8{"boot-os.sh"})
-    ;
-    cmd.step.dependOn(b.getInstallStep());
+        &[_][]const u8{"boot-os.sh"});
+    run_cmd.step.dependOn(b.getInstallStep());
 
     const run_step = b.step("run", "Run the os");
-    run_step.dependOn(&cmd.step);
+    run_step.dependOn(&run_cmd.step);
 }
