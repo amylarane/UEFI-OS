@@ -6,7 +6,7 @@ const Target = std.Target;
 const CrossTarget = std.zig.CrossTarget;
 
 pub fn build(b: *Builder) void {
-    const exe = b.addExecutable("bootx64", "src/hello.zig");
+    const exe = b.addExecutable("bootx64", "src/kernel.zig");
 
     exe.setTarget(CrossTarget{
         .cpu_arch = Target.Cpu.Arch.x86_64,
@@ -16,6 +16,7 @@ pub fn build(b: *Builder) void {
 
     exe.setBuildMode(b.standardReleaseOptions());
     exe.setOutputDir("efi/boot");
+    exe.overrideZigLibDir("std/lib/zig");
     b.default_step.dependOn(&exe.step);
     
     const run_cmd = b.addSystemCommand(if(builtin.os.tag == .windows)

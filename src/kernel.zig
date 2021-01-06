@@ -1,6 +1,7 @@
 const std = @import("std");
 const uefi = std.os.uefi;
 
+
 pub fn main() void {
     const reset = uefi.system_table.runtime_services.resetSystem;
 
