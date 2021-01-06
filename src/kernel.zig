@@ -46,7 +46,7 @@ pub fn setup_screen() void {
 }
 
 pub fn print(x: usize, y: usize, str: []const u8) void{
-    var buffer: [256]u8 = undefined;
+    var buffer: [2* str.len]u8 = undefined;
     var allocator = &std.heap.FixedBufferAllocator.init(&buffer).allocator;
     var str16 = std.unicode.utf8ToUtf16LeWithNull(allocator, str);
     
