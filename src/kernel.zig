@@ -1,17 +1,20 @@
 const std = @import("std");
 const uefi = std.os.uefi;
+const Time = uefi.Time;
 
 
 pub fn main() void {
     const reset = uefi.system_table.runtime_services.resetSystem;
+    const time = uefi.system_table.runtime_services.getTime;
 
     setup_screen();
     
-    print(5,5, "Hello World!");
-    
-    _ = uefi.system_table.boot_services.?.stall(1000* 5 * 1000);
-    
-    print16(5,6, uefi.system_table.firmware_vendor);    
+    print(5,3, "Hello World!"); 
+    print(5,4, "Vendor:");
+    print16(13,4, uefi.system_table.firmware_vendor);
+    print(5,5, "Press 's' to shutdown");
+    print(5,6, "Press 'r' to warm reboot");
+    print(5,7, "Press 'R' to cold reboot");
 
     while (true) {                
         switch(getKey().unicode_char){
@@ -20,6 +23,12 @@ pub fn main() void {
             'R' => reset(.ResetCold, .Success, 0, null),
             else => {}
         }
+        
+        var t: Time = undefined;    
+        _ = time(&t, null);    
+        var tstring: [*:0]const u16 = &[3:0]u16{ 48 + t.hour, 48+t.minute, 48+t.second };
+    
+        print16(0,1, tstring);
     }
 }
 
@@ -36,8 +45,17 @@ pub fn setup_screen() void {
     _ = con_out.clearScreen();
 }
 
-pub fn print(x: usize, y: usize, comptime str: []const u8) void{
-    print16(x,y, std.unicode.utf8ToUtf16LeStringLiteral(str));
+pub fn print(x: usize, y: usize, str: []const u8) void{
+    var buffer: [256]u8 = undefined;
+    var allocator = &std.heap.FixedBufferAllocator.init(&buffer).allocator;
+    var str16 = std.unicode.utf8ToUtf16LeWithNull(allocator, str);
+    
+    if(str16) |s| {
+        print16(x,y,s);
+    } else |err| {
+        var basic = &[1:0]u16{108};
+        print16(x,y, basic);
+    }    
 }
 
 pub fn print16(x: usize, y: usize, str: [*:0]const u16) void {

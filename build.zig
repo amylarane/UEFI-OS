@@ -17,6 +17,7 @@ pub fn build(b: *Builder) void {
     exe.setBuildMode(b.standardReleaseOptions());
     exe.setOutputDir("efi/boot");
     exe.overrideZigLibDir("std/lib/zig");
+    
     b.default_step.dependOn(&exe.step);
     
     const run_cmd = b.addSystemCommand(if(builtin.os.tag == .windows)
