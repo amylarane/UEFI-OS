@@ -8,16 +8,13 @@ pub fn main() void {
     const time = uefi.system_table.runtime_services.getTime;
     
     setup_screen();
-    
-    
-    
+   
     print(5,3, "Hello World!"); 
     print(5,4, "Vendor:");
     print16(13,4, uefi.system_table.firmware_vendor);
     print(5,5, "Press 's' to shutdown");
     print(5,6, "Press 'r' to warm reboot");
     print(5,7, "Press 'R' to cold reboot");
-
 
     var buffer = getBuffer(100);
     
@@ -37,16 +34,11 @@ pub fn main() void {
     }
 }
 
-pub fn getBuffer(size: usize) *?*c_void {
+pub fn getBuffer(size: usize) **c_void {
     const allocatePool = uefi.system_table.boot_services.?.memory.allocatePool;
 
-
-    var buffer: *?*c_void = undefined;
-    const status = allocatePool(2, size, buffer);
-    if(status != .Success){
-        print(0,0, "ERROR, allocation failed");
-    }
-    
+    var buffer: **c_void = undefined;
+    _ = allocatePool(.LoaderData, size, buffer);
     return buffer;
 }
 
