@@ -6,8 +6,10 @@ const Time = uefi.Time;
 pub fn main() void {
     const reset = uefi.system_table.runtime_services.resetSystem;
     const time = uefi.system_table.runtime_services.getTime;
-
+    
     setup_screen();
+    
+    
     
     print(5,3, "Hello World!"); 
     print(5,4, "Vendor:");
@@ -16,6 +18,9 @@ pub fn main() void {
     print(5,6, "Press 'r' to warm reboot");
     print(5,7, "Press 'R' to cold reboot");
 
+
+    var buffer = getBuffer(100);
+    
     while (true) {                
         switch(getKey().unicode_char){
             's' => reset(.ResetShutdown, .Success, 0, null),
@@ -31,6 +36,20 @@ pub fn main() void {
         print16(0,1, tstring);
     }
 }
+
+pub fn getBuffer(size: usize) *?*c_void {
+    const allocatePool = uefi.system_table.boot_services.?.memory.allocatePool;
+
+
+    var buffer: *?*c_void = undefined;
+    const status = allocatePool(2, size, buffer);
+    if(status != .Success){
+        print(0,0, "ERROR, allocation failed");
+    }
+    
+    return buffer;
+}
+
 
 pub fn getKey() uefi.protocols.InputKey {
     var key: uefi.protocols.InputKey = undefined;
