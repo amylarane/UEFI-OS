@@ -46,16 +46,13 @@ pub fn setup_screen() void {
 }
 
 pub fn print(x: usize, y: usize, str: []const u8) void{
-    var buffer: [2* str.len]u8 = undefined;
+    var buffer: [256]u8 = undefined;
     var allocator = &std.heap.FixedBufferAllocator.init(&buffer).allocator;
     var str16 = std.unicode.utf8ToUtf16LeWithNull(allocator, str);
     
     if(str16) |s| {
         print16(x,y,s);
-    } else |err| {
-        var basic = &[1:0]u16{108};
-        print16(x,y, basic);
-    }    
+    } else |err| {}
 }
 
 pub fn print16(x: usize, y: usize, str: [*:0]const u16) void {
