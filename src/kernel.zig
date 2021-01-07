@@ -3,6 +3,7 @@ const uefi = std.os.uefi;
 const Time = uefi.Time;
 
 
+
 pub fn main() void {
     const reset = uefi.system_table.runtime_services.resetSystem;
     const time = uefi.system_table.runtime_services.getTime;
@@ -15,8 +16,32 @@ pub fn main() void {
     print(5,5, "Press 's' to shutdown");
     print(5,6, "Press 'r' to warm reboot");
     print(5,7, "Press 'R' to cold reboot");
+    
+    const MemoryDescriptor = uefi.tables.MemoryDescriptor;
+    var map: [128]MemoryDescriptor = undefined;
+    var size: usize = @sizeOf(MemoryDescriptor) * 128;
+    var descSize: usize = undefined;
+    var mapKey: usize = undefined;
+    var descVersion: u32 = undefined;
+    
+    var status = uefi.system_table.boot_services.?.memory.getMemoryMap(
+        &size,
+        &map,
+        &mapKey,
+        &descSize,
+        &descVersion);
+        
+    print(0,10, switch(status) {
+        .Success => "Map Load Success",
+        .BufferTooSmall => "Buffer size error",
+        .InvalidParameter => "Something wrong",
+        else => "Other Error",
+    });
+    
+    print(0, 11, "Map Size:");
+    printNum(10, 11, size);
 
-    var buffer = getBuffer(100);
+    //var buffer = getBuffer(8);
     
     while (true) {                
         switch(getKey().unicode_char){
@@ -28,9 +53,12 @@ pub fn main() void {
         
         var t: Time = undefined;    
         _ = time(&t, null);    
-        var tstring: [*:0]const u16 = &[3:0]u16{ 48 + t.hour, 48+t.minute, 48+t.second };
-    
-        print16(0,1, tstring);
+        print(0,0,"                    ");
+        printNum(6, 1, t.second);
+        print(5, 1, ":");
+        printNum(3, 1, t.minute);
+        print(2, 1, ":");
+        printNum(0, 1, t.hour);
     }
 }
 
@@ -64,6 +92,26 @@ pub fn print(x: usize, y: usize, str: []const u8) void{
     if(str16) |s| {
         print16(x,y,s);
     } else |err| {}
+}
+
+pub fn printNum(x: usize, y:usize, num: usize) void {
+    const con_out = uefi.system_table.con_out.?;
+    _ = con_out.setCursorPosition(x,y);
+    var vNum = num;
+    if(vNum == 0){
+        print(x,y, "00");
+    } else if(vNum < 10){
+        const intPart: u16 = @intCast(u16, vNum);
+        var tempString: [*:0]const u16 = &[2:0]u16{intPart + '0', '0'};
+        _ = con_out.outputString(tempString);       
+    } else {
+        while(vNum > 0){
+            const intPart: u16 = @intCast(u16, vNum % 10);
+            vNum = vNum / 10;
+            var tempString: [*:0]const u16 = &[1:0]u16{intPart + '0'};
+            _ = con_out.outputString(tempString);        
+        }
+    }
 }
 
 pub fn print16(x: usize, y: usize, str: [*:0]const u16) void {
