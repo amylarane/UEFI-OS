@@ -1,96 +1,57 @@
 const std = @import("std");
 const uefi = std.os.uefi;
-const Time = uefi.Time;
-const Allocator = std.mem.Allocator;
-const io = std.io;
-const Writer = std.io.Writer;
 
-var allocator: *Allocator = undefined;
+const console = @import("efi/output/console.zig");
+const memory = @import("efi/memory.zig");
 
-pub fn main() void {
-    const reset = uefi.system_table.runtime_services.resetSystem;
+pub fn main() void {    
+    console.setup_screen();
     
-    
-    setup_screen();
-    
-    var buffer = getBuffer(8192);    
-    allocator = &std.heap.FixedBufferAllocator.init(buffer).allocator;    
-    const writer = Writer(*Allocator, error{}, write) {.context = allocator };
+    var buffer = memory.getBuffer(8192);    
+    var allocator = &std.heap.FixedBufferAllocator.init(buffer).allocator;    
+    const writer = console.getWriter(allocator);
     
     try std.fmt.format(writer, "Hello World!\r\n\r\n", .{});
     try std.fmt.format(writer, "Options:\r\n", .{});
     try std.fmt.format(writer, "    Press 'r' to reboot\r\n", .{});
     try std.fmt.format(writer, "    Press 's' to shutdown\r\n", .{});
     
-    while (true) {                
-        switch(getKey().unicode_char){
-            's' => reset(.ResetShutdown, .Success, 0, null),
-            'r' => reset(.ResetWarm, .Success, 0, null),
-            'R' => reset(.ResetCold, .Success, 0, null),
-            else => {}
-        } 
-
-        var x: usize = undefined;
-        var y: usize = undefined;
+    while (true) {
+        const time = uefi.system_table.runtime_services.*.getTime();
+        try console.writeAtPosition(writer,
+            40, 0,
+            "{d:0>2}:{d:0>2}:{d:0>2}",
+            .{time.hour,time.minute,time.second}
+        );
         
-        getPosition(&x, &y);        
-        setPosition(40, 0);
-        const t = getTime();
-        try std.fmt.format(writer, "{d:0>2}:{d:0>2}:{d:0>2}",
-            .{t.hour,t.minute,t.second});
-        setPosition(x,y);
+        const reset = Reset.init(uefi.system_table.con_in.?.getKey());
+        if(reset.shouldReset){
+            memory.deleteBuffer(buffer);
+            reset.reset();
+        }
     }
 }
 
-pub fn getTime() Time {
-    const time = uefi.system_table.runtime_services.getTime;
-    var t: Time = undefined; 
-    _ = time(&t, null);
-    return t;
-}
-
-pub fn getBuffer(size: usize) []u8 {
-    const allocatePool = uefi.system_table.boot_services.?.memory.allocatePool;
-
-    var buffer: []u8 = undefined;    
-    _ = allocatePool(.LoaderData, size, &buffer);
-    return buffer;
-}
-
-
-pub fn getKey() uefi.protocols.InputKey {
-    var key: uefi.protocols.InputKey = undefined;
+pub const Reset = struct {
+    const ResetType = uefi.tables.ResetType;
+    shouldReset: bool,
+    rtype: ResetType,
     
-    _ = uefi.system_table.con_in.?.readKeyStroke(&key);
-    return key;
-}
-
-pub fn setup_screen() void {
-    const con_out = uefi.system_table.con_out.?;
-    _ = con_out.reset(false);
-    _ = con_out.clearScreen();
-}
-
-pub fn write(alloc: *Allocator, bytes: []const u8) !u64 {
-    var str16 = std.unicode.utf8ToUtf16LeWithNull(alloc, bytes);
+    pub fn init(char: u16) Reset{
+        return Reset {
+            .shouldReset = (char == 's' or char == 'r'),
+            .rtype = switch(char){
+                's' => .ResetShutdown,
+                else => .ResetWarm,
+            },
+        };
+    }
     
-    if(str16) |s| {
-        const con_out = uefi.system_table.con_out.?;
-        
-        _ = con_out.outputString(s);
-        _ = alloc.realloc(s, 0) catch 0;
-    } else |err| {}
-    return bytes.len;
-}
-
-pub fn getPosition(x: *usize, y: *usize) void{
-    const mode = uefi.system_table.con_out.?.mode.*;
-    x.* = @intCast(usize, mode.cursor_column);
-    y.* = @intCast(usize, mode.cursor_row);
-}
-
-pub fn setPosition(x: usize, y: usize) void {
-    const setPos = uefi.system_table.con_out.?.setCursorPosition;
-    _ = setPos(x,y);
-}
+    pub fn reset(self: Reset) void{
+        if(self.shouldReset){
+            uefi.system_table.runtime_services.
+                resetSystem(self.rtype, .Success, 0, null);
+        }
+    }
+};
 
