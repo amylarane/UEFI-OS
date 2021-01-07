@@ -2,6 +2,10 @@ const std = @import("std");
 const uefi = std.os.uefi;
 const Time = uefi.Time;
 const Allocator = std.mem.Allocator;
+const io = std.io;
+const Writer = std.io.Writer;
+
+var allocator: *Allocator = undefined;
 
 pub fn main() void {
     const reset = uefi.system_table.runtime_services.resetSystem;
@@ -10,45 +14,13 @@ pub fn main() void {
     setup_screen();
     
     var buffer = getBuffer(8192);    
-    var allocator = &std.heap.FixedBufferAllocator.init(buffer).allocator;
+    allocator = &std.heap.FixedBufferAllocator.init(buffer).allocator;    
+    const writer = Writer(*Allocator, error{}, write) {.context = allocator };
     
-    
-    print(allocator, 5,3, "Hello World!"); 
-    
-    print(allocator,5,4, "Vendor:");
-    print16(13,4, uefi.system_table.firmware_vendor);
-    
-    print(allocator,5,5, "Press 's' to shutdown");
-    print(allocator,5,6, "Press 'r' to warm reboot");
-    print(allocator,5,7, "Press 'R' to cold reboot");
-    
-    const MemoryDescriptor = uefi.tables.MemoryDescriptor;
-    var map: [128]MemoryDescriptor = undefined;
-    var size: usize = @sizeOf(MemoryDescriptor) * 128;
-    var descSize: usize = undefined;
-    var mapKey: usize = undefined;
-    var descVersion: u32 = undefined;
-    
-    var status = uefi.system_table.boot_services.?.memory.getMemoryMap(
-        &size,
-        &map,
-        &mapKey,
-        &descSize,
-        &descVersion);
-        
-    print(allocator,0,10, switch(status) {
-        .Success => "Map Load Success",
-        .BufferTooSmall => "Buffer size error",
-        .InvalidParameter => "Something wrong",
-        else => "Other Error",
-    });
-    
-    print(allocator,0, 11, "Map Size:");
-    printNum(allocator,10, 11, size);
-
-    print(allocator,5, 1, ":");
-    print(allocator,2, 1, ":");
-  
+    try std.fmt.format(writer, "Hello World!\r\n\r\n", .{});
+    try std.fmt.format(writer, "Options:\r\n", .{});
+    try std.fmt.format(writer, "    Press 'r' to reboot\r\n", .{});
+    try std.fmt.format(writer, "    Press 's' to shutdown\r\n", .{});
     
     while (true) {                
         switch(getKey().unicode_char){
@@ -56,13 +28,17 @@ pub fn main() void {
             'r' => reset(.ResetWarm, .Success, 0, null),
             'R' => reset(.ResetCold, .Success, 0, null),
             else => {}
-        }       
-   
-            
+        } 
+
+        var x: usize = undefined;
+        var y: usize = undefined;
+        
+        getPosition(&x, &y);        
+        setPosition(40, 0);
         const t = getTime();
-        printNum(allocator,6, 1, t.second);        
-        printNum(allocator,3, 1, t.minute);        
-        printNum(allocator,0, 1, t.hour);
+        try std.fmt.format(writer, "{d:0>2}:{d:0>2}:{d:0>2}",
+            .{t.hour,t.minute,t.second});
+        setPosition(x,y);
     }
 }
 
@@ -95,39 +71,26 @@ pub fn setup_screen() void {
     _ = con_out.clearScreen();
 }
 
-pub fn print(allocator: *Allocator, x: usize, y: usize, str: []const u8) void{
-    var str16 = std.unicode.utf8ToUtf16LeWithNull(allocator, str);
+pub fn write(alloc: *Allocator, bytes: []const u8) !u64 {
+    var str16 = std.unicode.utf8ToUtf16LeWithNull(alloc, bytes);
     
     if(str16) |s| {
-        print16(x,y,s);
-        _ = allocator.realloc(s, 0) catch 0;
-    } else |err| {}
-}
-
-pub fn printNum(allocator: *Allocator, x: usize, y:usize, num: usize) void {
-    const con_out = uefi.system_table.con_out.?;
-    _ = con_out.setCursorPosition(x,y);
-    
-    var vNum = num;
-    if(vNum == 0){
-        print(allocator, x,y, "00");
-    } else if(vNum < 10){
-        const intPart: u16 = @intCast(u16, vNum);
-        var tempString: [*:0]const u16 = &[2:0]u16{intPart + '0', '0'};
-        _ = con_out.outputString(tempString);       
-    } else {
+        const con_out = uefi.system_table.con_out.?;
         
-        while(vNum > 0){
-            const intPart: u16 = @intCast(u16, vNum % 10);
-            vNum = vNum / 10;
-            var tempString: [*:0]const u16 = &[1:0]u16{intPart + '0'};
-            _ = con_out.outputString(tempString);        
-        }
-    }
+        _ = con_out.outputString(s);
+        _ = alloc.realloc(s, 0) catch 0;
+    } else |err| {}
+    return bytes.len;
 }
 
-pub fn print16(x: usize, y: usize, str: [*:0]const u16) void {
-    const con_out = uefi.system_table.con_out.?;
-    _ = con_out.setCursorPosition(x,y);
-    _ = con_out.outputString(str);
+pub fn getPosition(x: *usize, y: *usize) void{
+    const mode = uefi.system_table.con_out.?.mode.*;
+    x.* = @intCast(usize, mode.cursor_column);
+    y.* = @intCast(usize, mode.cursor_row);
 }
+
+pub fn setPosition(x: usize, y: usize) void {
+    const setPos = uefi.system_table.con_out.?.setCursorPosition;
+    _ = setPos(x,y);
+}
+
