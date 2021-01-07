@@ -3,22 +3,21 @@ const uefi = std.os.uefi;
 const Time = uefi.Time;
 const Allocator = std.mem.Allocator;
 
-
-
 pub fn main() void {
     const reset = uefi.system_table.runtime_services.resetSystem;
-    const time = uefi.system_table.runtime_services.getTime;
+    
     
     setup_screen();
     
-    var buffer = getBuffer(128);    
+    var buffer = getBuffer(8192);    
     var allocator = &std.heap.FixedBufferAllocator.init(buffer).allocator;
     
     
     print(allocator, 5,3, "Hello World!"); 
-    print(allocator, 20, 3, @src().file);
+    
     print(allocator,5,4, "Vendor:");
     print16(13,4, uefi.system_table.firmware_vendor);
+    
     print(allocator,5,5, "Press 's' to shutdown");
     print(allocator,5,6, "Press 'r' to warm reboot");
     print(allocator,5,7, "Press 'R' to cold reboot");
@@ -49,7 +48,7 @@ pub fn main() void {
 
     print(allocator,5, 1, ":");
     print(allocator,2, 1, ":");
-    var t: Time = undefined; 
+  
     
     while (true) {                
         switch(getKey().unicode_char){
@@ -59,12 +58,19 @@ pub fn main() void {
             else => {}
         }       
    
-        _ = time(&t, null);    
-        
+            
+        const t = getTime();
         printNum(allocator,6, 1, t.second);        
         printNum(allocator,3, 1, t.minute);        
         printNum(allocator,0, 1, t.hour);
     }
+}
+
+pub fn getTime() Time {
+    const time = uefi.system_table.runtime_services.getTime;
+    var t: Time = undefined; 
+    _ = time(&t, null);
+    return t;
 }
 
 pub fn getBuffer(size: usize) []u8 {
