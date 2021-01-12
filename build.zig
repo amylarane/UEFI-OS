@@ -23,7 +23,7 @@ pub fn build(b: *Builder) void {
     const run_cmd = b.addSystemCommand(if(builtin.os.tag == .windows)
         &[_][]const u8{"boot-os.bat"}
     else
-        &[_][]const u8{"boot-os.sh"});
+        &[_][]const u8{"./boot-os.sh"});
     run_cmd.step.dependOn(b.getInstallStep());
 
     const run_step = b.step("run", "Run the os");
