@@ -2,44 +2,44 @@ const std = @import("std");
 
 const console = @import("efi/output/console.zig");
 const memory = @import("efi/memory.zig");
-const interrupts = @import("platform/interrupts/idt.zig");
 const uefi = std.os.uefi;
 
 const Allocator = std.mem.Allocator;
 const Writer = console.Writer;
 
-const GlobalDescriptorTable = @import("platform/interrupts/gdt.zig").GlobalDescriptorTable;
+var allocator: *Allocator = undefined;
+var writer: Writer = undefined;
 
-pub fn main() noreturn {    
+pub fn init_preboot() void {
     console.setup_screen();
-    
-    var allocator = memory.getAllocator(8192);
-    var writer = console.getWriter(allocator);
-    
-    printBootMessage(writer);
-       
-    //const gdt = GlobalDescriptorTable.init();
-    //gdt.load();
-    //interrupts.idt.load();
-    eventLoop(writer, allocator);
+
+    allocator = memory.getAllocator(8192);
+    writer = console.getWriter(allocator);
 }
 
-pub fn printBootMessage(writer: Writer) void {
-    try std.fmt.format(writer, "Hello World!\n\n\r", .{});
-    try std.fmt.format(writer, "Options:\r\n", .{});
-    try std.fmt.format(writer, "    Press 'r' to reboot\r\n", .{});
-    try std.fmt.format(writer, "    Press 's' to shutdown\r\n", .{}); 
+pub fn main() noreturn {
+    init_preboot();
+
+    printBootMessage();
+
+    eventLoop();
 }
 
-pub fn eventLoop(writer: Writer, allocator: *Allocator) noreturn {
+pub fn printBootMessage() void {
+    try writer.print("Hello World!\n\n\r", .{});
+    try writer.print("Options:\r\n", .{});
+    try writer.print("    Press 'r' to reboot\r\n", .{});
+    try writer.print("    Press 's' to shutdown\r\n", .{});
+}
+
+pub fn eventLoop() noreturn {
     while (true) {
-        try console.writeAtPosition(writer, 40, 0, "{}", 
-            .{uefi.system_table.runtime_services.*.getTime()});
-        
+        try console.writeAtPosition(writer, 40, 0, "{}", .{uefi.system_table.runtime_services.*.getTime()});
+
         const Reset = @import("efi/boot_manager/reset.zig").Reset;
         const reset = Reset.init(std.os.uefi.system_table.con_in.?.getKey());
-        
-        if(reset.shouldReset){
+
+        if (reset.shouldReset) {
             memory.deleteAllocator(allocator);
             reset.reset();
         }
